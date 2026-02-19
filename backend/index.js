@@ -21,8 +21,7 @@ const server = http.createServer(app);
 
 /* ================= CORS ================= */
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://real-time-chat-call-application.onrender.com"
+  "http://localhost:5173"
 ];
 
 app.use(cors({
@@ -96,47 +95,6 @@ io.on("connection", (socket) => {
       });
     } catch (err) {
       socket.emit("error", { message: "Failed to save message" });
-    }
-  });
-
-  // call user
-  socket.on("call-user", ({ to, offer }) => {
-    const target = getSocketId(to);
-    if (target) {
-      io.to(target).emit("incoming-call", {
-        from: socket.userId,
-        offer,
-      });
-    }
-  });
-
-  // answer call
-  socket.on("answer-call", ({ to, answer }) => {
-    const target = getSocketId(to);
-    if (target) {
-      io.to(target).emit("call-accepted", {
-        from: socket.userId,
-        answer,
-      });
-    }
-  });
-
-  // ICE candidate
-  socket.on("ice-candidate", ({ to, candidate }) => {
-    const target = getSocketId(to);
-    if (target) {
-      io.to(target).emit("ice-candidate", {
-        from: socket.userId,
-        candidate,
-      });
-    }
-  });
-
-  // end call
-  socket.on("end-call", ({ to }) => {
-    const target = getSocketId(to);
-    if (target) {
-      io.to(target).emit("end-call", { from: socket.userId });
     }
   });
 

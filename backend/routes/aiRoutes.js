@@ -1,12 +1,16 @@
 import express from "express";
-import OpenAI from "openai";
 import jwt from "jsonwebtoken";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router = express.Router();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let genAI;
+function getGenAI() {
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+  return genAI;
+}
 
 // 🔐 AUTH
 const auth = (req, res, next) => {
@@ -28,22 +32,20 @@ router.post("/smart-reply", auth, async (req, res) => {
   if (!lastMessage) return res.json({ replies: [] });
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",   // ✅ NEW MODEL
-      messages: [
-        {
-          role: "system",
-          content: "You are a chat assistant. Reply short and friendly."
-        },
-        {
-          role: "user",
-          content: `Give exactly 3 short chat replies for: "${lastMessage}"`
-        }
-      ],
-      temperature: 0.7,
+    const model = getGenAI().getGenerativeModel({
+      model: "gemini-2.0-flash"
     });
 
-    const text = completion.choices[0].message.content;
+    const prompt = `
+Give exactly 3 short friendly chat replies for:
+"${lastMessage}"
+
+Return each reply on new line.
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
     const replies = text
       .split("\n")
@@ -54,34 +56,37 @@ router.post("/smart-reply", auth, async (req, res) => {
     res.json({ replies });
 
   } catch (err) {
-    console.error("AI ERROR:", err.message);
+    console.error("GEMINI ERROR:", err.message);
     res.status(500).json({ error: "AI smart reply failed" });
   }
 });
 
-/* ================= CHAT SUMMARY ================= */
-router.post("/summary", auth, async (req, res) => {
+/* ================= SUMMARIZE CHAT ================= */
+router.post("/summarize", auth, async (req, res) => {
   const { messages } = req.body;
-  if (!messages?.length) return res.json({ summary: "" });
+  if (!messages || messages.length === 0) return res.json({ summary: "No messages to summarize." });
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: `Summarize this chat in 2 lines:\n${messages.join("\n")}`
-        }
-      ],
+    const model = getGenAI().getGenerativeModel({
+      model: "gemini-2.0-flash"
     });
 
-    res.json({
-      summary: completion.choices[0].message.content
-    });
+    const chatLog = messages.map(m => `${m.sender}: ${m.message}`).join("\n");
+    const prompt = `
+Summarize this chat conversation in 2-3 concise sentences. Focus on key topics discussed:
+
+${chatLog}
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const summary = response.text().trim();
+
+    res.json({ summary });
 
   } catch (err) {
-    console.error("SUMMARY ERROR:", err.message);
-    res.status(500).json({ error: "Summary failed" });
+    console.error("GEMINI SUMMARIZE ERROR:", err.message);
+    res.status(500).json({ error: "AI summarize failed" });
   }
 });
 
