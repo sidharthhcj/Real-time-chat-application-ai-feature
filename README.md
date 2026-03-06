@@ -2,6 +2,7 @@
 
 A full-stack real-time chat application with private messaging and audio/video calling.
 
+Project live link-> https://real-time-chat-application-ai-featu.vercel.app/
 ## 🚀 Features
 - User authentication (JWT)
 - One-to-one real-time chat using Socket.IO
