@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Search, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import StatusBar from './StatusBar';
 
-const Sidebar = ({ currentUser, users, selectedUser, onSelectUser, onLogout, className }) => {
+const Sidebar = ({ currentUser, users, selectedUser, onSelectUser, onLogout, statuses, currentUserId, onUploadStatus, onViewStatus, className }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
     const filteredUsers = users.filter(u =>
@@ -29,6 +30,34 @@ const Sidebar = ({ currentUser, users, selectedUser, onSelectUser, onLogout, cla
                     <LogOut size={18} />
                 </button>
             </div>
+
+            {/* Status Bar */}
+            {statuses && statuses.length > 0 ? (
+                <StatusBar
+                    statuses={statuses}
+                    currentUserId={currentUserId}
+                    onUploadStatus={onUploadStatus}
+                    onViewStatus={onViewStatus}
+                />
+            ) : (
+                <div className="px-4 py-3 border-b border-white/10">
+                    <button
+                        onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+                            input.onchange = (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) onUploadStatus(file);
+                            };
+                            input.click();
+                        }}
+                        className="w-full text-sm text-[var(--text-muted)] hover:text-[var(--text-main)] py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-dashed border-white/20 transition-all flex items-center justify-center gap-2"
+                    >
+                        📸 Add your first status
+                    </button>
+                </div>
+            )}
 
             {/* Search */}
             <div className="p-4 pb-2 shrink-0">

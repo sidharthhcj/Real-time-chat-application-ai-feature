@@ -12,6 +12,7 @@ const ChatLayout = ({
     currentMessage,
     loading,
     onSelectUser,
+    onGoBack,
     onMessageChange,
     onSendMessage,
     onLogout,
@@ -25,6 +26,11 @@ const ChatLayout = ({
     summaryLoading,
     showSummary,
     onCloseSummary,
+    // Status props
+    statuses,
+    currentUserId,
+    onUploadStatus,
+    onViewStatus,
 }) => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -72,6 +78,10 @@ const ChatLayout = ({
                                 selectedUser={selectedUser}
                                 onSelectUser={onSelectUser}
                                 onLogout={onLogout}
+                                statuses={statuses}
+                                currentUserId={currentUserId}
+                                onUploadStatus={onUploadStatus}
+                                onViewStatus={onViewStatus}
                                 className="w-full h-full"
                             />
                         </motion.div>
@@ -89,7 +99,7 @@ const ChatLayout = ({
                                 className="w-full h-full"
                             />
                             <button
-                                onClick={() => onSelectUser(null)}
+                                onClick={onGoBack}
                                 className="absolute top-4 left-4 p-2 bg-black/50 text-white rounded-full z-50 md:hidden"
                             >
                                 ←
@@ -105,6 +115,10 @@ const ChatLayout = ({
                         selectedUser={selectedUser}
                         onSelectUser={onSelectUser}
                         onLogout={onLogout}
+                        statuses={statuses}
+                        currentUserId={currentUserId}
+                        onUploadStatus={onUploadStatus}
+                        onViewStatus={onViewStatus}
                         className="w-80 flex-none z-10"
                     />
 

@@ -26,6 +26,27 @@ const auth = (req, res, next) => {
   }
 };
 
+// Helper: detect rate-limit errors and return proper response
+function handleGeminiError(err, res, feature) {
+  const errMsg = err.message || "";
+  console.error(`GEMINI ${feature} ERROR:`, errMsg);
+
+  // Detect 429 rate limit from error message
+  if (errMsg.includes("429") || errMsg.includes("Too Many Requests") || errMsg.includes("quota")) {
+    // Extract retry delay if present
+    const retryMatch = errMsg.match(/retry in ([\d.]+)s/i);
+    const retryAfter = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : 60;
+
+    return res.status(429).json({
+      error: "rate_limited",
+      message: `AI quota exceeded. Please try again in ${retryAfter} seconds.`,
+      retryAfter
+    });
+  }
+
+  return res.status(500).json({ error: `AI ${feature} failed` });
+}
+
 /* ================= SMART REPLY ================= */
 router.post("/smart-reply", auth, async (req, res) => {
   const { lastMessage } = req.body;
@@ -56,8 +77,7 @@ Return each reply on new line.
     res.json({ replies });
 
   } catch (err) {
-    console.error("GEMINI ERROR:", err.message);
-    res.status(500).json({ error: "AI smart reply failed" });
+    handleGeminiError(err, res, "SMART REPLY");
   }
 });
 
@@ -85,8 +105,7 @@ ${chatLog}
     res.json({ summary });
 
   } catch (err) {
-    console.error("GEMINI SUMMARIZE ERROR:", err.message);
-    res.status(500).json({ error: "AI summarize failed" });
+    handleGeminiError(err, res, "SUMMARIZE");
   }
 });
 

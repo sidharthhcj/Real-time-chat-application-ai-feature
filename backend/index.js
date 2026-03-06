@@ -13,6 +13,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import Message from "./models/Message.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import statusRoutes from "./routes/statusRoutes.js";
 
 
 /* ================= APP & SERVER ================= */
@@ -32,6 +33,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// Serve uploaded files (status images)
+app.use("/uploads", express.static("uploads"));
+
 /* ================= ROUTES ================= */
 app.get("/", (req, res) => {
   res.send("Server running 🚀");
@@ -41,6 +45,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/status", statusRoutes);
 /* ================= SOCKET.IO ================= */
 const io = new Server(server, {
   cors: {

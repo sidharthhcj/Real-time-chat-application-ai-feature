@@ -3,6 +3,7 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 import ChatLayout from "../components/layout/ChatLayout";
+import StatusViewer from "../components/chat/StatusViewer";
 
 export default function Chat() {
   const [users, setUsers] = useState([]);
@@ -19,6 +20,10 @@ export default function Chat() {
   const [chatSummary, setChatSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+
+  // 📸 Status State
+  const [statuses, setStatuses] = useState([]);
+  const [viewingStatus, setViewingStatus] = useState(null);
 
   const navigate = useNavigate();
 
@@ -47,7 +52,56 @@ export default function Chat() {
     };
 
     fetchUsers();
+    fetchStatuses();
   }, [token, navigate]);
+
+  // 📸 Fetch statuses
+  const fetchStatuses = async () => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setStatuses(res.data);
+    } catch (err) {
+      console.error("Error fetching statuses:", err);
+    }
+  };
+
+  // 📸 Upload status
+  const handleUploadStatus = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/status`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      fetchStatuses(); // refresh
+    } catch (err) {
+      console.error("Error uploading status:", err);
+    }
+  };
+
+  // 📸 Delete status
+  const handleDeleteStatus = async (statusId) => {
+    try {
+      await axios.delete(
+        `${import.meta.env.VITE_BACKEND_URL}/api/status/${statusId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchStatuses(); // refresh
+    } catch (err) {
+      console.error("Error deleting status:", err);
+    }
+  };
 
   // 🔹 Socket connection
   useEffect(() => {
@@ -100,8 +154,12 @@ export default function Chat() {
       setSmartReplies(res.data.replies || []);
     } catch (err) {
       console.error("Smart reply error:", err);
-      if (err.response?.status === 500) {
-        setSmartReplies(["⚠️ AI quota exceeded. Try again later."]);
+      const status = err.response?.status;
+      if (status === 429) {
+        const retryAfter = err.response?.data?.retryAfter || 60;
+        setSmartReplies([`⚠️ AI quota exceeded. Try again in ${retryAfter}s.`]);
+      } else if (status === 500) {
+        setSmartReplies(["⚠️ AI service error. Try again later."]);
       } else {
         setSmartReplies([]);
       }
@@ -131,10 +189,12 @@ export default function Chat() {
       setChatSummary(res.data.summary || "Could not generate summary.");
     } catch (err) {
       console.error("Summarize error:", err);
-      if (err.response?.status === 500) {
-        setChatSummary("⚠️ AI quota exceeded. Please wait a minute and try again.");
+      const status = err.response?.status;
+      if (status === 429) {
+        const retryAfter = err.response?.data?.retryAfter || 60;
+        setChatSummary(`⚠️ AI quota exceeded. Please try again in ${retryAfter} seconds.`);
       } else {
-        setChatSummary("Failed to summarize chat.");
+        setChatSummary("Failed to summarize chat. AI service unavailable.");
       }
     } finally {
       setSummaryLoading(false);
@@ -170,13 +230,25 @@ export default function Chat() {
 
   // 🔹 Join private room
   const joinChat = (user) => {
+    if (!user) return; // safety guard
     setSelectedUser(user);
     setShowSummary(false);
     setChatSummary("");
+    setSmartReplies([]);
     const roomId = [myId, user._id].sort().join("_");
-    socket.emit("join-room", roomId);
+    if (socket) {
+      socket.emit("join-room", roomId);
+    }
     setCurrentRoom(roomId);
     loadChatHistory(roomId);
+  };
+
+  // 🔹 Go back (mobile) — clear selection without calling joinChat
+  const handleGoBack = () => {
+    setSelectedUser(null);
+    setShowSummary(false);
+    setChatSummary("");
+    setSmartReplies([]);
   };
 
   // 🔹 Send private message
@@ -218,27 +290,45 @@ export default function Chat() {
   };
 
   return (
-    <ChatLayout
-      currentUser={loggedUser}
-      users={users}
-      selectedUser={selectedUser}
-      messages={messages}
-      currentMessage={message}
-      loading={loading}
-      onSelectUser={joinChat}
-      onMessageChange={setMessage}
-      onSendMessage={sendMessage}
-      onLogout={handleLogout}
-      // AI props
-      smartReplies={smartReplies}
-      smartRepliesLoading={smartRepliesLoading}
-      onUseSmartReply={handleUseSmartReply}
-      onRequestSmartReplies={handleRequestSmartReplies}
-      onSummarize={handleSummarize}
-      chatSummary={chatSummary}
-      summaryLoading={summaryLoading}
-      showSummary={showSummary}
-      onCloseSummary={() => setShowSummary(false)}
-    />
+    <>
+      <ChatLayout
+        currentUser={loggedUser}
+        users={users}
+        selectedUser={selectedUser}
+        messages={messages}
+        currentMessage={message}
+        loading={loading}
+        onSelectUser={joinChat}
+        onGoBack={handleGoBack}
+        onMessageChange={setMessage}
+        onSendMessage={sendMessage}
+        onLogout={handleLogout}
+        // AI props
+        smartReplies={smartReplies}
+        smartRepliesLoading={smartRepliesLoading}
+        onUseSmartReply={handleUseSmartReply}
+        onRequestSmartReplies={handleRequestSmartReplies}
+        onSummarize={handleSummarize}
+        chatSummary={chatSummary}
+        summaryLoading={summaryLoading}
+        showSummary={showSummary}
+        onCloseSummary={() => setShowSummary(false)}
+        // Status props
+        statuses={statuses}
+        currentUserId={myId}
+        onUploadStatus={handleUploadStatus}
+        onViewStatus={setViewingStatus}
+      />
+
+      {/* Status Viewer Overlay */}
+      {viewingStatus && (
+        <StatusViewer
+          statusGroup={viewingStatus}
+          currentUserId={myId}
+          onClose={() => { setViewingStatus(null); fetchStatuses(); }}
+          onDelete={handleDeleteStatus}
+        />
+      )}
+    </>
   );
 }
