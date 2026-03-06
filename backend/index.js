@@ -33,6 +33,7 @@ app.use(cors({
   credentials: true
 }));
 
+app.options("*", cors()); 
 app.use(express.json());
 
 // Serve uploaded files (status images)
@@ -52,7 +53,8 @@ app.use("/api/status", statusRoutes);
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
   }
 });
 
